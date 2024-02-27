@@ -90,7 +90,7 @@ def select_wsi_by_strategy(cycle, wsi_patch_score, wsi_rep_method, model, label_
     model_result_df = get_model_results(cycle=cycle, model=model, loader=unlabeled_loader)
     
     label_lambda = None
-    if wsi_rep_method in [ 'kl_rep', 'kl_rank' , 'js_rep', 'js_rank', 'kl_dis_x', 'js_dis_x'] : 
+    if wsi_rep_method in ["kl_dis_x", "kl_rep", "kl_rank", "js_dis_x", "js_rep", "js_rank"] : 
         labeled_df = pd.DataFrame(label_data, columns=['subset', 'slide_name', 'img_path', 'label'])
         labeled_loader = patch_dataloaders(
                 data=labeled_df[['img_path', 'label']].values.tolist(), 

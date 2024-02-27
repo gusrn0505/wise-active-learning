@@ -7,20 +7,12 @@ import numpy as np
 import pandas as pd
 from torch.optim.lr_scheduler import StepLR
 import time
+import config as cfg
 
 from src.utils_selection_per_slide import select_random_patches_per_class, select_random_slides_per_class, select_wsi_by_strategy, select_patch_by_strategy
 from src.dataloader import patch_dataloaders
 from src.utils_train import train, eval_model
 
-# Dataset location 
-TRAIN_DIR = "./data/train"
-VAL_DIR = "./data/val"
-TEST_DIR = "./data/test"
-
-CLASSES = ['D', 'M', 'N']
-INITIAL_WSI_PER_CLASS = [2]
-NUM_WSI_PER_GENERATION = [30] 
-NUM_PATCHES_PER_WSI = [40]    
 
 #PATCH_STRATEGY = ['passive', 'random','confidence', 'entropy', 'coreset', 'badge'] 
 PATCH_STRATEGY = ['confidence', 'random', 'badge', 'coreset'] 
@@ -30,36 +22,43 @@ WSI_PATCH_SCORE = ['entropy'] # 'entropy', 'confidence', 'class_conf'
 
 # WSI_REP_METHOD = ["random", "average", "cdal", "kl_dis_x", "kl_rep", "kl_rank", "js_dis_x", "js_rep", "js_rank"]
 WSI_REP_METHOD = [ 'random'] 
+CLASSES = ['D', 'M', 'N']
 
-LOAD_WSI_CSV = False 
-RESTORE_EXTRACTION = True 
+NUM_RUNS = 1
 
-CHECK_NUM_PATCHES = True  # check whether the number of patches in a WSI is under 40
-NUM_PATCH_FILTER = 80
 
-RANDOM_SEED = 2024
+def main(cfg, patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, logger):
+    TRAIN_DIR = cfg.TRAIN_DIR
+    VAL_DIR = cfg.VAL_DIR
+    TEST_DIR = cfg.TEST_DIR
+    INITIAL_WSI_PER_CLASS = cfg.INITIAL_WSI_PER_CLASS
+    NUM_WSI_PER_GENERATION = cfg.NUM_WSI_PER_GENERATION
+    NUM_PATCHES_PER_WSI = cfg.NUM_PATCHES_PER_WSI
+    BASE_DIR =cfg.BASE_DIR
+    LOAD_WSI_CSV = cfg.LOAD_WSI_CSV
+    RESTORE_EXTRACTION = cfg.RESTORE_EXTRACTION
+    CHECK_NUM_PATCHES = cfg.CHECK_NUM_PATCHES  # check whether the number of patches in a WSI is under 40
+    NUM_PATCH_FILTER = cfg.NUM_PATCH_FILTER
 
-MODEL_NAME = 'resnet' #'vgg','resnet'
-BATCH_SIZE = 8
-LEARNING_RATE = 0.01  
-NUM_EPOCHS = 2
-CYCLES = 2 # AL round 
+    RANDOM_SEED = cfg.RANDOM_SEED
+    MODEL_NAME = cfg.MODEL_NAME 
+    BATCH_SIZE = cfg.BATCH_SIZE
+    LEARNING_RATE = cfg.LEARNING_RATE
+    NUM_EPOCHS = cfg.NUM_EPOCHS
+    CYCLES = cfg.CYCLES
 
-NUM_RUNS = 1   # RUN THE CODE K TIMES
+    random.seed(RANDOM_SEED)
+    np.random.seed(RANDOM_SEED)
+    torch.manual_seed(RANDOM_SEED)  
 
-random.seed(RANDOM_SEED)
-np.random.seed(RANDOM_SEED)
-torch.manual_seed(RANDOM_SEED)   
 
-def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_wsi_per_class: int, num_wsi_per_generation: int, num_patches_per_wsi: int, logger, trial_number, base_dir):
-
-    model_dir = os.path.join(base_dir, "models")
-    result_dir = os.path.join(base_dir, "results")
+    model_dir = os.path.join(BASE_DIR, "models")
+    result_dir = os.path.join(BASE_DIR, "results")
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(result_dir, exist_ok=True)
 
     experiment_results = []
-    csv_dir = f"{base_dir}/csv"
+    csv_dir = f"{BASE_DIR}/csv"
     os.makedirs(csv_dir, exist_ok=True)
 
     data = []
@@ -112,7 +111,7 @@ def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_
             selected_slides = select_random_slides_per_class(
                 data=unlabeled_pool,
                 classes=CLASSES,
-                num_slides_per_class=initial_wsi_per_class)
+                num_slides_per_class=INITIAL_WSI_PER_CLASS)
                 
             
             selected_patch = [[subset, slide_name, img_path, label] 
@@ -143,7 +142,7 @@ def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_
             
             # To check effectiveness of patch active learning for selected WSI by each WSI AL methods
             if LOAD_WSI_CSV == True : 
-                selected_wsi_loc = f"log/stomach/csv/WSI_{wsi_patch_score}_{wsi_rep_method}.csv"
+                selected_wsi_loc = cfg.LOAD_WSI_LOCATION
                 wsi_df = pd.read_csv(selected_wsi_loc)
                 selected_wsi_per_iter_in_csv = wsi_df[wsi_df['AL_iter'] == cycle]
                 selected_slides = selected_wsi_per_iter_in_csv[selected_wsi_per_iter_in_csv["selected"]  ==1]["slide_name"].tolist()
@@ -160,8 +159,8 @@ def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_
                             unlabel_data= unlabeled_pool,
                             classes=CLASSES,
                             batch_size=BATCH_SIZE,
-                            num_slides=num_wsi_per_generation, 
-                            num_patches_per_wsi = num_patches_per_wsi
+                            num_slides=NUM_WSI_PER_GENERATION, 
+                            num_patches_per_wsi = NUM_PATCHES_PER_WSI
                             )
 
             selected_patch, selected_patch_per_iter_in_csv = select_patch_by_strategy(
@@ -173,7 +172,7 @@ def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_
                             labeled_loader=train_loader,
                             classes=CLASSES,
                             batch_size=BATCH_SIZE,
-                            num_patches_per_slide=num_patches_per_wsi)
+                            num_patches_per_slide=NUM_PATCHES_PER_WSI)
 
             print("Finish to select patch from each wsi")
 
@@ -199,7 +198,7 @@ def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_
 
 
         labeled_df = pd.DataFrame(labeled_patch, columns=['subset', 'slide_name', 'img_path', 'label'])
-        labeled_df.to_csv(f"{csv_dir}/{MODEL_NAME}_initialWSI{initial_wsi_per_class}_WSI_{wsi_patch_score}{num_wsi_per_generation}__Patch_{patch_strategy}{num_patches_per_wsi}_cycle{cycle}.csv", index=False)
+        labeled_df.to_csv(f"{csv_dir}/{MODEL_NAME}_initialWSI{INITIAL_WSI_PER_CLASS}_WSI_{wsi_patch_score}{NUM_WSI_PER_GENERATION}__Patch_{patch_strategy}{NUM_PATCHES_PER_WSI}_cycle{cycle}.csv", index=False)
 
         print(f"Cycle: {cycle}. Unlabeled WSI: {len(unlabeled_slides)}. # of training WSI: {len(labeled_slides)}, # of training patches: {len(labeled_patch)}")  
 
@@ -244,10 +243,10 @@ def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_
         end_time = time.time()
         elapsed_time = end_time - start_time
         
-        logger.write(f"{cycle},{len(labeled_slides)},{num_patches_per_wsi},{len(labeled_patch)}, {elapsed_time}, {auroc_score:.4f},{test_acc:.4f}\n")
+        logger.write(f"{cycle},{len(labeled_slides)},{NUM_PATCHES_PER_WSI},{len(labeled_patch)}, {elapsed_time}, {auroc_score:.4f},{test_acc:.4f}\n")
 
 
-        experiment_results.append([cycle, len(labeled_slides), num_patches_per_wsi, auroc_score, test_acc])
+        experiment_results.append([cycle, len(labeled_slides), NUM_PATCHES_PER_WSI, auroc_score, test_acc])
 
         print()
 
@@ -259,11 +258,10 @@ def main(patch_strategy: str, wsi_patch_score :str, wsi_rep_method:str, initial_
 if __name__=='__main__':  
     for _ in range(NUM_RUNS):
         trial_number = 1
-        base_dir = "log/stomach/trial_"
 
-        while Path(f"{base_dir}{trial_number}").exists():
+        while Path(f"{cfg.BASE_DIR}{trial_number}").exists():
             trial_number += 1
-        log_dir = f"{base_dir}{trial_number}"
+        log_dir = f"{cfg.BASE_DIR}{trial_number}"
         Path(log_dir).mkdir(exist_ok=False, parents=True)
         print(f"Log dir: {log_dir}")
         
@@ -281,27 +279,20 @@ if __name__=='__main__':
                         if wsi_rep_method != 'cdal' : continue 
                     
                     else : 
-                        pass 
+                        if wsi_rep_method not in ["kl_dis_x", "kl_rep", "kl_rank", "js_dis_x", "js_rep", "js_rank"] : continue
 
-                    for initial_wsi_per_class in INITIAL_WSI_PER_CLASS:  
-                        logger_name = f"{wsi_patch_score}_{wsi_rep_method}_{patch_strategy}_{initial_wsi_per_class}WSI"
-                        log_file = f"{log_dir}/test_{MODEL_NAME}_{logger_name}.txt"
+
+                    logger_name = f"{wsi_patch_score}_{wsi_rep_method}_{patch_strategy}_{cfg.INITIAL_WSI_PER_CLASS}WSI"
+                    log_file = f"{log_dir}/test_{cfg.MODEL_NAME}_{logger_name}.txt"
                     
-                        for num_wsi_per_generation in NUM_WSI_PER_GENERATION:
 
-                            for num_patches_per_wsi in NUM_PATCHES_PER_WSI: 
-                                print(f"{wsi_patch_score}, {patch_strategy}, {initial_wsi_per_class} initial wsi per class, {num_wsi_per_generation} wsi per generation, {num_patches_per_wsi} patches per wsi")
-                                with open(log_file, "a") as logger:
-                                    logger.write("cycle, number_of_wsi,number_of_patches_per_wsi, train_patches, time, auroc_score, accuracy\n")
-                                    main(
-                                    patch_strategy=patch_strategy,
-                                    wsi_patch_score = wsi_patch_score, 
-                                    wsi_rep_method = wsi_rep_method,
-                                    initial_wsi_per_class=initial_wsi_per_class,
-                                    num_wsi_per_generation=num_wsi_per_generation,
-                                    num_patches_per_wsi=num_patches_per_wsi,
-                                    logger=logger,
-                                    trial_number=trial_number,
-                                    base_dir = log_dir) 
+                    print(f"{wsi_patch_score}, {patch_strategy}, {cfg.INITIAL_WSI_PER_CLASS} initial wsi per class, {cfg.NUM_WSI_PER_GENERATION} wsi per generation, {cfg.NUM_PATCHES_PER_WSI} patches per wsi")
+                    with open(log_file, "a") as logger:
+                        logger.write("cycle, number_of_wsi,number_of_patches_per_wsi, train_patches, time, auroc_score, accuracy\n")
+                        main(
+                        patch_strategy=patch_strategy,
+                        wsi_patch_score = wsi_patch_score, 
+                        wsi_rep_method = wsi_rep_method,
+                        logger=logger) 
 
 
