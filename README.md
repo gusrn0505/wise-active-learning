@@ -18,7 +18,7 @@ The WISE method has been tested across multiple datasets, showing consistently s
 
 **Figure1**. When ‘Patch active learning method=Random sampling', comparing performance of WSI selection methods
 
-![image\figure2](image\figure2.png)
+![Local Image](./image/figure2.png)
 
 **Figure 2**. When best Patch active leanring method is applied, comparing performance of WSI selection methods
 
@@ -36,11 +36,11 @@ The WISE method has been tested across multiple datasets, showing consistently s
 
 2. **[Experiment 3]** Comparison with Pool-based methods with proposed method
 
-![image\figure3](image\figure3.png)
+![Local Image](./image/figure3.png)
 
 **Figure 3**. Performance comparison between pool-based and proposed methods 
 
-![image\figure4](image\figure4.png)
+![Local Image](./image/figure4.png)
 
 **Figure 4**. Comparison of trained WSI numbers between pool-based and proposed methods
 
@@ -133,7 +133,7 @@ Our dataset comprises three distinct sources: Colon, Stomach, and DigestPath col
 
 #### Preprocessing Workflow for Whole Slide Images (WSI)
 
-![image\figure5](image\figure5.png)
+![Local Image](./image/figure5.png)
 
 **Figure 5**. Process of making patches from WSI
 
